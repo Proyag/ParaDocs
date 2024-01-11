@@ -41,3 +41,13 @@ For example,
 ```bash
 ./run-join.sh eng mlt wide00006 mt
 ```
+
+To run everything, run
+```bash
+for collection in GWB-20191109192916 hieu marta philipp wide00006 wide00015 wide00016; do
+    for lang in SRC TRG; do
+        ./run-join.sh SRC TRG ${collection} ${lang}
+    done
+done
+```
+but remember that **this will take a long time** to run for most language pairs.
