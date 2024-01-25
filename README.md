@@ -11,7 +11,7 @@ pip install -r requirements.txt
 ```
 * Command-line tools
 ```bash
-sudo apt install parallel pigz
+sudo apt install parallel pigz pv
 ```
 
 ## Required files
@@ -34,12 +34,12 @@ In this step, we extract the URLs and corresponding line numbers from the TMX fi
 ### Step 2: Run join
 This step basically joins the extracted URLs with the {URL, document} pairs from the classified-fasttext data.
 
-First, *edit the `RAWDATA_DIR` variable in `run-join.sh` to point to your copy of `classified-fasttext`.
+First, edit the `RAWDATA_DIR` variable in `run-join.sh` to point to your copy of `classified-fasttext`.
 Then run `./run-join.sh SRC TRG COLLECTION LANG`, `COLLECTION` is one of the collections in `classified-fasttext` like `wide00006` or `philipp`, and `LANG` is either `SRC` or `TRG`. You can also loop over all the collections and both `LANG`s, but this step is very heavy and long-running.
 
 For example,
 ```bash
-./run-join.sh eng mlt wide00006 mt
+./run-join.sh eng mlt wide00006 mlt
 ```
 
 To run everything, run
@@ -51,3 +51,9 @@ for collection in GWB-20191109192916 hieu marta philipp wide00006 wide00015 wide
 done
 ```
 but remember that **this will take a long time** to run for most language pairs.
+
+### Step 3: Extract contexts
+The main part of this process is highly parallelisable. If you're on a SLURM cluster, you can edit `SLURM=1` in the script, and this will run the context extraction jobs as an array on the cluster. Otherwise, it will run locally. Adjust `N_JOBS` in `get-contexts.sh` to the number of parallel jobs you want to run. The default is 4. Each job will hold one side of the sentence-level parallel corpus in memory, so take that into account when choosing `N_JOBS`.
+```bash
+./get-contexts.sh SRC TRG
+```
