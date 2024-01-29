@@ -58,4 +58,4 @@ The main part of this process is highly parallelisable. If you're on a SLURM clu
 ./get-contexts.sh SRC TRG
 ```
 
-The final output files are in `data/contexts_per_line/SRC-TRG.{SRC,TRG}.context512.per_line.gz`. These are gzipped TSV files where the columns are `line_number`, `URL`, `sentence`, `context`. You can use the line numbers to match these with the lines from the original ParaCrawl TMX/TSV file.
+The final output files are in `data/contexts_per_line/SRC-TRG.{SRC,TRG}.context512.per_line.gz`. These are gzipped TSV files where the columns are `line_number`, `URL`, `sentence`, `context`. You can use the line numbers to match these with the lines from the original ParaCrawl TMX/TSV file. The `context` field has up to 1000 contexts (the same line may have come from many different sources) separated by `|||` as a delimiter. Line breaks in the original context have been replaced by a special `<docline>` token.
