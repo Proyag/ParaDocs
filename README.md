@@ -53,9 +53,18 @@ done
 but remember that **this will take a long time** to run for most language pairs.
 
 ### Step 3: Extract contexts
-The main part of this process is highly parallelisable. If you're on a SLURM cluster, you can edit `SLURM=1` in the script, and this will run the context extraction jobs as an array on the cluster. Otherwise, it will run locally. Adjust `N_JOBS` in `get-contexts.sh` to the number of parallel jobs you want to run. The default is 4. Each job will hold one side of the sentence-level parallel corpus in memory, so take that into account when choosing `N_JOBS`.
-```bash
-./get-contexts.sh SRC TRG
-```
+The main part of this process is highly parallelisable. `get-context.sh` can be run in two ways: locally or as a job array on a SLURM cluster.
 
+Usage: `./get-contexts.sh [-n N_JOBS] [-s] [-a SLURM_ARGS...] [-c CONTEXT] [-f] SRC TRG`
+
+Arguments are:
+* `-s`: Enables SLURM mode. Run locally if not provided.
+* `-n N_JOBS`: Number of parallel jobs if run locally, otherwise number of parallel jobs per SLURM array job. Default: 4.
+* `-a ARGS`: SLURM job arguments. Remember to wrap in quotes. For example, `-a "-A ACCOUNT -p PARTITION --nodes 1 --time 6:00:00"`
+* `-c CONTEXT`: Number of tokens per retrieved context (including special sentence delimiter tokens). Default: 512.
+* `-f`: Force re-splitting joined files. Useful if splitting was interrupted.
+
+NOTE: Each job will hold one side of the sentence-level parallel corpus in memory, so take that into account when choosing `N_JOBS`.
+
+### Output data
 The final output files are in `data/contexts_per_line/SRC-TRG.{SRC,TRG}.context512.per_line.gz`. These are gzipped TSV files where the columns are `line_number`, `URL`, `sentence`, `context`. You can use the line numbers to match these with the lines from the original ParaCrawl TMX/TSV file. The `context` field has up to 1000 contexts (the same line may have come from many different sources) separated by `|||` as a delimiter. Line breaks in the original context have been replaced by a special `<docline>` token.
