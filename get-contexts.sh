@@ -47,8 +47,7 @@ JOINED=${DATA_HOME}/joined/${SRC}-${TRG}
 if [[ ! -d ${JOINED}/shards ]] || [[ ${FORCE_RESHARD} -eq 1 ]]; then
 	echo "Sharding joined data for ${SRC}-${TRG}"
 	mkdir -p ${JOINED}/shards ${DATA_HOME}/contexts_per_line
-	# PPTODO
-	ls -1 ${JOINED}/${SRC}-${TRG}.{GWB*,wide00006}.*.joined.gz | parallel -j ${N_JOBS} 'pigz -cd {} | split -C 30G -d -a4 - {//}/shards/{/}.shard && echo {} done'
+	ls -1 ${JOINED}/${SRC}-${TRG}.*.*.joined.gz | parallel -j ${N_JOBS} 'pigz -cd {} | split -C 30G -d -a4 - {//}/shards/{/}.shard && echo {} done'
 fi
 
 echo "Launching context extraction for ${SRC}-${TRG}"
@@ -69,7 +68,7 @@ if [[ ${SLURM} -eq 0 ]]; then
 
 			echo "Sorting ${lang} contexts"
 			ls -1 ${JOINED}/shards/${SRC}-${TRG}.*.${lang}.joined.gz.shard????.context${N_CONTEXT} \
-				| parallel -j${N_JOBS} "sort -t$'\t' -k1,1n --parallel=8 -S 20% {} > {}.sorted && mv {}.sorted {} && echo {} done"
+				| parallel -j${N_JOBS} "sort -t$'\t' -k1,1n --parallel=8 -S 10% {} > {}.sorted && mv {}.sorted {} && echo {} done"
 
 		echo "Combining ${lang} contexts"
 		sort -m -t$'\t' -k1,1n --parallel=${N_JOBS} -S 80% ${JOINED}/shards/${SRC}-${TRG}.*.${lang}.joined.gz.shard*.context${N_CONTEXT} \
@@ -91,6 +90,7 @@ else
 		tmpfile=$(mktemp /tmp/context.XXXXXXX)
 		cat <<-EOF > ${tmpfile}
 		#!/bin/bash
+		set -Eeuo pipefail
 
 		ml Anaconda3 parallel
 
@@ -124,6 +124,7 @@ else
 		tmpfile=$(mktemp /tmp/context.XXXXXXX)
 		cat <<-EOF > ${tmpfile}
 		#!/bin/bash
+		set -Eeuo pipefail
 
 		ml Anaconda3
 
