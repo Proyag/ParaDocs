@@ -59,16 +59,30 @@ if [[ ! -f ${DATA_HOME}/released/${SRC}-${TRG}.${TRG} ]]; then
 	pigz -cd ${DATA_HOME}/released/${SRC}-${TRG}.txt.gz | cut -f2 > ${DATA_HOME}/released/${SRC}-${TRG}.${TRG}
 fi
 
+function get_shards_todo() {
+	# Get shards that have not been processed yet
+
+	LANG=$1
+	SUFFIX=${2:-""}
+
+	# Get all shards for one language
+	all_files="${JOINED}/shards/eng-fra.*.${LANG}.joined.gz.shard????"
+
+	for i in `ls -1 ${all_files}`; do
+		if [[ ! -f ${i}.context512 ]]; then echo "${i}${SUFFIX}"; fi;
+	done
+}
+
 if [[ ${SLURM} -eq 0 ]]; then
 	# Run local version
 	for lang in ${SRC} ${TRG}; do
 			echo "Extracting ${lang} contexts"
-			ls -1 ${JOINED}/shards/${SRC}-${TRG}.*.${lang}.joined.gz.shard???? \
-				| parallel -j${N_JOBS} 'python create-doc-context-dataset.py -q -c ${N_CONTEXT} -i {} -o {}.context${N_CONTEXT} --sentence-file' ${DATA_HOME}/released/${SRC}-${TRG}.${lang}' && echo {} done'
+			get_shards_todo ${lang} \
+				| parallel -v --line-buffer -j${N_JOBS} 'python create-doc-context-dataset.py -q -c ${N_CONTEXT} -i {} -o {}.context${N_CONTEXT}.unsorted --sentence-file' ${DATA_HOME}/released/${SRC}-${TRG}.${lang}' && echo {} done'
 
 			echo "Sorting ${lang} contexts"
-			ls -1 ${JOINED}/shards/${SRC}-${TRG}.*.${lang}.joined.gz.shard????.context${N_CONTEXT} \
-				| parallel -j${N_JOBS} "sort -t$'\t' -k1,1n --parallel=8 -S 10% {} > {}.sorted && mv {}.sorted {} && echo {} done"
+			get_shards_todo $lang} .context${N_CONTEXT} \
+				| parallel -v --line-buffer -j${N_JOBS} "sort -t$'\t' -k1,1n --parallel=8 -S 10% {}.unsorted > {}.sorted && mv {}.sorted {} && rm {}.unsorted && echo {} done"
 
 		echo "Combining ${lang} contexts"
 		sort -m -t$'\t' -k1,1n --parallel=${N_JOBS} -S 80% ${JOINED}/shards/${SRC}-${TRG}.*.${lang}.joined.gz.shard*.context${N_CONTEXT} \
@@ -81,64 +95,81 @@ else
 	# SLURM version
 	mkdir -p ${JOINED}/slurm_logs
 	for lang in ${SRC} ${TRG}; do
-		N_SHARDS=$(ls -1 ${JOINED}/shards/${SRC}-${TRG}.*.${lang}.joined.gz.shard???? | wc -l)
+		N_SHARDS=$(get_shards_todo ${lang} | wc -l)
 		ARRAY_SIZE=`python3 -c "import math; print(math.ceil(${N_SHARDS} / ${N_JOBS}))"`
 
-		echo "Submitting ${ARRAY_SIZE} ${lang} context extraction jobs"
+		if [[ ${N_SHARDS} -eq 0 ]]; then
+			echo "No shards to process for ${lang}"
+			COMBINE_DEPENDENCY=""
+		else
+			echo "Submitting ${ARRAY_SIZE} ${lang} context extraction jobs"
 
-		# Create script to submit to SLURM
-		tmpfile=$(mktemp /tmp/context.XXXXXXX)
-		cat <<-EOF > ${tmpfile}
-		#!/bin/bash
-		set -Eeuo pipefail
+			# Create script to submit to SLURM
+			tmpfile=$(mktemp /tmp/context.XXXXXXX)
+			cat <<-EOF > ${tmpfile}
+			#!/bin/bash
+			set -Eeuo pipefail
 
-		ml Anaconda3 parallel
+			ml Anaconda3 parallel
 
-		ALL_SHARDS=($(ls -1 ${JOINED}/shards/${SRC}-${TRG}.*.${lang}.joined.gz.shard???? | sort))
-		start=\`echo \${SLURM_ARRAY_TASK_ID} '*' ${N_JOBS} | bc\`
+			ALL_SHARDS=($(get_shards_todo ${lang} | sort))
+			start=\`echo \${SLURM_ARRAY_TASK_ID} '*' ${N_JOBS} | bc\`
 
-		echo \${ALL_SHARDS[@]:\${start}:${N_JOBS}} | tr ' ' '\n' \\
-		| parallel -v -j ${N_JOBS} \\
-		"python3 create-doc-context-dataset.py \\
-			-q -c ${N_CONTEXT} \\
-			-i {} -o {}.context${N_CONTEXT} \\
-			--sentence-file ${DATA_HOME}/released/${SRC}-${TRG}.${lang} \\
-		&& echo {} extraction done \\
-		&& sort -t$'\t' -k1,1n --parallel=8 -S 10% {}.context${N_CONTEXT} > {}.context${N_CONTEXT}.sorted \\
-		&& mv {}.context${N_CONTEXT}.sorted {}.context${N_CONTEXT} \\
-		&& echo {}.context${N_CONTEXT} sorted"
+			echo \${ALL_SHARDS[@]:\${start}:${N_JOBS}} | tr ' ' '\n' \\
+			| parallel -v --line-buffer -j ${N_JOBS} \\
+			"python3 create-doc-context-dataset.py \\
+				-q -c ${N_CONTEXT} \\
+				-i {} -o {}.context${N_CONTEXT}.unsorted \\
+				--sentence-file ${DATA_HOME}/released/${SRC}-${TRG}.${lang} \\
+			&& echo {} extraction done"
 
-		EOF
+			echo \${ALL_SHARDS[@]:\${start}:${N_JOBS}} | tr ' ' '\n' \\
+			| parallel -v --line-buffer -j ${N_JOBS} \\
+			"sort -t$'\t' -k1,1n --parallel=16 -S 20% {}.context${N_CONTEXT}.unsorted > {}.context${N_CONTEXT}.sorted \\
+			&& mv {}.context${N_CONTEXT}.sorted {}.context${N_CONTEXT} \\
+			&& rm {}.context${N_CONTEXT}.unsorted \\
+			&& echo {}.context${N_CONTEXT} sorted"
 
-		CONTEXT_JOBID=$(
-		    sbatch --parsable ${SLURM_ARGS} -J context -a 0-$(( ARRAY_SIZE - 1 )) \
-		    -o ${JOINED}/slurm_logs/${SRC}-${TRG}.${lang}.context${N_CONTEXT}.%A-%a.out \
-		    ${tmpfile}
-		)
-		echo "Submitted context extraction jobs ${CONTEXT_JOBID}"
-		rm ${tmpfile}
+			EOF
+
+			CONTEXT_JOBID=$(
+				sbatch --parsable ${SLURM_ARGS} -J context -a 0-$(( ARRAY_SIZE - 1 )) \
+				-o ${JOINED}/slurm_logs/${SRC}-${TRG}.${lang}.context${N_CONTEXT}.%A-%a.out \
+				${tmpfile}
+			)
+			echo "Submitted context extraction jobs ${CONTEXT_JOBID}"
+			COMBINE_DEPENDENCY="-d afterok:${CONTEXT_JOBID}"
+			rm ${tmpfile}
+		fi
 
 		echo "Submitting ${lang} combine job"
 
 		# Create script to submit to SLURM
-		tmpfile=$(mktemp /tmp/context.XXXXXXX)
+		tmpfile=$(mktemp /tmp/combine.XXXXXXX)
 		cat <<-EOF > ${tmpfile}
 		#!/bin/bash
 		set -Eeuo pipefail
 
 		ml Anaconda3
 
-		sort -m -t$'\t' -k1,1n --parallel=${N_JOBS} -S 80% ${JOINED}/shards/${SRC}-${TRG}.*.${lang}.joined.gz.shard*.context${N_CONTEXT} \
-			> ${JOINED}/${SRC}-${TRG}.${lang}.context${N_CONTEXT} \
-			&& echo ${SRC}-${TRG}.${lang}.context${N_CONTEXT} done; \
+		sort -m -t$'\t' -k1,1n --parallel=${N_JOBS} -S 80% \
+			${JOINED}/shards/${SRC}-${TRG}.*.${lang}.joined.gz.shard*.context${N_CONTEXT} \
+			> ${JOINED}/${SRC}-${TRG}.${lang}.context${N_CONTEXT}.merge \
+			&& mv ${JOINED}/${SRC}-${TRG}.${lang}.context${N_CONTEXT}.merge ${JOINED}/${SRC}-${TRG}.${lang}.context${N_CONTEXT} \
+		&& echo "${SRC}-${TRG}.${lang}.context${N_CONTEXT} sorted"
+
 		python3 combine-contexts-per-line.py \
 			< ${JOINED}/${SRC}-${TRG}.${lang}.context${N_CONTEXT} \
-			| pigz -p4 > ${DATA_HOME}/contexts_per_line/${SRC}-${TRG}.${lang}.context${N_CONTEXT}.per_line.gz
+			| pigz -p4 \
+			> ${DATA_HOME}/contexts_per_line/${SRC}-${TRG}.${lang}.context${N_CONTEXT}.per_line.gz.tmp \
+		&& mv ${DATA_HOME}/contexts_per_line/${SRC}-${TRG}.${lang}.context${N_CONTEXT}.per_line.gz.tmp \
+			  ${DATA_HOME}/contexts_per_line/${SRC}-${TRG}.${lang}.context${N_CONTEXT}.per_line.gz
+		&& echo "${SRC}-${TRG}.${lang}.context${N_CONTEXT}.per_line.gz ready"
 
 		EOF
 
 		COMBINE_JOBID=$(
-		    sbatch --parsable ${SLURM_ARGS} -J combine -d afterok:${CONTEXT_JOBID} \
+		    sbatch --parsable ${SLURM_ARGS} -J combine ${COMBINE_DEPENDENCY} \
 		    -o ${JOINED}/slurm_logs/${SRC}-${TRG}.${lang}.context${N_CONTEXT}.combine.%A.out \
 		    ${tmpfile}
 		)
