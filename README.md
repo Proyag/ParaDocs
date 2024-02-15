@@ -1,13 +1,12 @@
-# ParaDocs
-Extracting parallel data with original document context from raw ParaCrawl data
-
-This repo shares its name with https://github.com/rewicks/ParaDocs and also deals with extracting document information from [ParaCrawl](https://paracrawl.eu/), but these two repos are neither forks nor affiliated in any way. The name was just too perfect to pass up!
+# ParaCrawl-Context
+Extracting parallel data with original document context from raw [ParaCrawl](https://paracrawl.eu/) data
 
 ## Environment setup:
 * Create a conda env
 ```bash
-conda create -n paradocs python=3.10
+conda create -n context python=3.10
 pip install -r requirements.txt
+conda activate context
 ```
 * Command-line tools
 ```bash
@@ -16,7 +15,7 @@ sudo apt install parallel pigz pv
 
 ## Required files
 For all language pairs:
-* classified-fasttext: Raw URLs and base64 encoded documents from ParaCrawl crawls that the corpora were extracted from. Not everything was released here, so our process will be lossy.
+* classified-fasttext: Raw URLs and base64 encoded documents from ParaCrawl crawls that the corpora were extracted from. These can be downloaded from the "Language Classified Web Text from ParaCrawl" section on [this page](https://paracrawl.eu/moredata). Not everything was released here, so our process will be lossy.
 
 Per language pair:
 * TMX file: TMX files from official ParaCrawl releases.  
