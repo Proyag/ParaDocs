@@ -1,0 +1,35 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+  - family-names: "Pal"
+    given-names: "Proyag"
+  - family-names: "Birch"
+    given-names: "Alexandra"
+  - family-names: "Heafield"
+    given-names: "Kenneth"
+title: "ParaCrawl-Context"
+version: 1.0.0
+date-released: 2024-05-22
+url: "https://github.com/github-linguist/linguist"
+preferred-citation:
+  type: conference-paper
+  authors:
+    - family-names: "Pal"
+      given-names: "Proyag"
+    - family-names: "Birch"
+      given-names: "Alexandra"
+    - family-names: "Heafield"
+      given-names: "Kenneth"
+  # doi: "10.0000/00000"
+  collection-title: "Proceedings of the 62nd Annual Meeting of the Association for Computational Linguistics"
+  conference:
+    name: 62nd Annual Meeting of the Association for Computational Linguistics
+    city: Bangkok
+    country: Thailand
+    date-start: 2024-08-11
+    date-end: 2024-08-16
+  month: 8
+  # start: # First page number
+  # end: # Last page number
+  title: "Document-Level Machine Translation with Large-Scale Public Parallel Corpora"
+  year: 2024
