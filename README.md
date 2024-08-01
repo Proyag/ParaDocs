@@ -2,7 +2,11 @@
 Extracting parallel data with original document context from raw [ParaCrawl](https://paracrawl.eu/) data.  
 For details, see the associated ACL 2024 paper: [Document-Level Machine Translation with Large-Scale Public Parallel Corpora](https://proyag.github.io/files/papers/docmt.pdf).
 
-## Environment setup:
+## Released data
+Datasets for 5 language pairs have been released at https://huggingface.co/datasets/Proyag/paracrawl_context.  
+If you want to compile your own datasets, read on.
+
+## Environment setup
 * Create a conda env
 ```bash
 conda create -n context python=3.10
@@ -68,6 +72,3 @@ NOTE: Each job will hold one side of the sentence-level parallel corpus in memor
 
 ### Output data
 The final output files can be found in `data/contexts_per_line/SRC-TRG.{SRC,TRG}.context512.per_line.gz`. These are gzipped TSV files where the columns are `line_number`, `URL`, `sentence`, `context`. You can use the line numbers to match these with the lines from the original ParaCrawl TMX/TSV file. The `context` field has up to 1000 contexts (the same line may have come from many different sources) separated by `|||` as a delimiter by default. Line breaks in the original context have been replaced by a special `<docline>` token.
-
-## Released data
-Datasets for 5 language pairs have already been released at https://huggingface.co/datasets/Proyag/paracrawl_context.
