@@ -1,6 +1,6 @@
 # ParaCrawl-Context
 Extracting parallel data with original document context from raw [ParaCrawl](https://paracrawl.eu/) data.  
-For details, see the associated ACL 2024 paper: [Document-Level Machine Translation with Large-Scale Public Parallel Corpora](https://proyag.github.io/files/papers/docmt.pdf).
+For details, see the associated ACL 2024 paper: [Document-Level Machine Translation with Large-Scale Public Parallel Corpora](https://aclanthology.org/2024.acl-long.712/).
 
 ## Released data
 Datasets for 5 language pairs have been released at https://huggingface.co/datasets/Proyag/paracrawl_context.  
